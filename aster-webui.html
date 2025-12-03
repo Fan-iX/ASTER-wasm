@@ -352,7 +352,7 @@
         async function runWasm(wasmModule, { args = [], FS = {}, retFiles = [] } = {}) {
             let $stdout = [], $stderr = [], $stdin = [], _i = 0
             if (FS.$stdin) {
-                stdin = await getUint8Array(FS.$stdin)
+                $stdin = await getUint8Array(FS.$stdin)
                 delete FS.$stdin
             }
             var wasm = await wasmModule({
