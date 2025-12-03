@@ -1,0 +1,63 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create dist directory
+        run: mkdir -p dist/wasm
+
+      - name: Setup emscripten
+        uses: mymindstorm/setup-emsdk@v12
+
+      - name: Build
+        shell: bash
+        run: make -f Makefile.emcc EXEEXT=.js LDFLAGS="-s EXIT_RUNTIME=1 -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORTED_RUNTIME_METHODS=[\"callMain\",\"FS\"] -s ENVIRONMENT=[\"web\"] -O3 -DNDEBUG"
+
+      - name: Copy artifacts to dist
+        shell: bash
+        run: cp bin/*.js bin/*.wasm -t dist/wasm/
+
+      - name: Build wasm.js
+        working-directory: dist/wasm
+        run: ls *.js | sed 's/.js//' | awk "{print \"export { default as '\"\$0\"' } from './wasm/\"\$0\".js';\" }" > ../wasm.js
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: aster-wasm
+          path: ./dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: aster-wasm
+          path: ./dist
+
+      - name: Copy static files
+        run: cp ./src/aster-webui.html -t ./dist/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
